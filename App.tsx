@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import Header from './components/Header';
 import Sidebar from './components/Sidebar';
 import KpiCard from './components/KpiCard';
 import TopQueries from './components/TopQueries';
 import TrafficOverview from './components/TrafficOverview';
 import SidebarWidgets from './components/SidebarWidgets';
+import Homepage from './components/Homepage';
 
 const kpiData = [
   { title: 'Candidates', value: '823', change: '+48%', previousText: 'from 556 (Previous 4 Weeks)' },
@@ -14,12 +15,18 @@ const kpiData = [
 ];
 
 const App: React.FC = () => {
+  const [currentPage, setCurrentPage] = useState('home');
+
+  if (currentPage === 'home') {
+    return <Homepage onNavigateToDashboard={() => setCurrentPage('dashboard')} />;
+  }
+
   return (
     <div className="min-h-screen bg-slate-100 text-slate-800 font-sans">
       <div className="flex">
         <Sidebar />
         <div className="flex-1 flex flex-col">
-          <Header />
+          <Header onNavigateToHome={() => setCurrentPage('home')} />
           
           {/* Title and Breadcrumbs */}
           <div className="p-6 md:p-8 border-b border-slate-200 bg-white">

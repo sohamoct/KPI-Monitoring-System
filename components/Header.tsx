@@ -1,11 +1,15 @@
 import React, { useState } from 'react';
 import { Menu, X, Bell, UserCircle } from 'lucide-react';
 
-const Header: React.FC = () => {
+interface HeaderProps {
+  onNavigateToHome: () => void;
+}
+
+const Header: React.FC<HeaderProps> = ({ onNavigateToHome }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   // Nav links from the admin dashboard screenshot
-  const topNavLinks = ["Home", "Manage data", "Manage portal", "Refer & Earn", "Visit website"];
+  const topNavLinks = ["Home", "Manage data", "Manage portal", "Refer & Earn"];
   const sideNavLinks = [
     { name: 'Dashboard', active: true },
     { name: 'Ad Network', active: false },
@@ -16,9 +20,9 @@ const Header: React.FC = () => {
     <header className="bg-white sticky top-0 z-40 border-b border-slate-200">
       <div className="mx-auto px-4 md:px-8 flex justify-between items-center h-16">
         {/* Logo */}
-        <div className="text-2xl font-bold text-slate-900">
+        <button onClick={onNavigateToHome} className="text-2xl font-bold text-slate-900 focus:outline-none" aria-label="Go to Homepage">
           Ed<span className="text-sky-500">Assist</span>
-        </div>
+        </button>
 
         {/* Desktop Navigation */}
         <nav className="hidden lg:flex items-center space-x-6">
@@ -27,6 +31,9 @@ const Header: React.FC = () => {
               {link}
             </a>
           ))}
+           <button onClick={onNavigateToHome} className="text-slate-600 hover:text-sky-500 transition-colors duration-300 text-sm font-medium">
+              Visit website
+            </button>
         </nav>
 
         {/* Action Icons */}
@@ -56,8 +63,8 @@ const Header: React.FC = () => {
               <a href="#" key={link.name} className={`w-full text-left px-4 py-2 rounded-md font-medium text-slate-700 ${link.active ? 'bg-sky-100' : 'hover:bg-slate-100'}`}>{link.name}</a>
             ))}
             <hr className="w-full border-slate-200 my-2" />
-            {topNavLinks.map((link) => (
-              <a key={link} href="#" className="w-full text-left px-4 py-2 rounded-md text-slate-600 hover:bg-slate-100">
+            {[...topNavLinks, "Visit website"].map((link) => (
+              <a key={link} href="#" onClick={link === "Visit website" ? onNavigateToHome : undefined} className="w-full text-left px-4 py-2 rounded-md text-slate-600 hover:bg-slate-100">
                 {link}
               </a>
             ))}
