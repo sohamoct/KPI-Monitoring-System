@@ -3,6 +3,9 @@ import { Search, MapPin, Briefcase, Building, Menu, X } from 'lucide-react';
 import JobAlert from './JobAlert';
 import FeaturedJobs from './FeaturedJobs';
 import SearchByCategory from './SearchByCategory';
+import SearchResults from './SearchResults';
+import { GoogleGenAI } from "@google/genai";
+
 
 interface HomepageProps {
   onNavigateToDashboard: () => void;
@@ -10,6 +13,11 @@ interface HomepageProps {
 
 const Homepage: React.FC<HomepageProps> = ({ onNavigateToDashboard }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [jobQuery, setJobQuery] = useState('');
+  const [city, setCity] = useState('');
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const navLinks = [
     { name: 'Browse Jobs', href: '#' },
@@ -17,6 +25,61 @@ const Homepage: React.FC<HomepageProps> = ({ onNavigateToDashboard }) => {
     { name: 'For Employers', href: '#' },
     { name: 'Blogs', href: '#' },
   ];
+
+  const handleSearch = async () => {
+    if (!jobQuery.trim() || !city.trim()) {
+        setError("Please enter both a job query and a city.");
+        return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+    setSearchResults([]);
+
+    try {
+        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+        
+        const prompt = `
+            You are a helpful job search assistant.
+            Find current job openings for a "${jobQuery}" in ${city}, India, using your search tool.
+            Return the results as a JSON object with a single key "jobs" which is an array of job objects.
+            Each job object must have the following keys: "title", "company", "location", "description", and "applyLink".
+            The description should be a brief summary of 1-2 sentences.
+            If no jobs are found, return a JSON object with an empty "jobs" array.
+            Do not include any text, markdown, or code block syntax outside of the JSON object itself.
+        `;
+
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-pro",
+            contents: prompt,
+            config: {
+                tools: [{ googleSearch: {} }],
+            },
+        });
+        
+        let jsonText = response.text.trim();
+        
+        // Clean potential markdown formatting
+        if (jsonText.startsWith('```json')) {
+            jsonText = jsonText.substring(7, jsonText.length - 3).trim();
+        }
+
+        const parsedData = JSON.parse(jsonText);
+
+        if (parsedData.jobs && parsedData.jobs.length > 0) {
+            setSearchResults(parsedData.jobs);
+        } else {
+            setError("No jobs found for your search criteria.");
+        }
+
+    } catch (e) {
+        console.error(e);
+        setError("Sorry, something went wrong while searching for jobs. Please try again later.");
+    } finally {
+        setIsLoading(false);
+    }
+  };
+
 
   return (
     <div className="bg-white text-slate-800 font-sans">
@@ -82,7 +145,9 @@ const Homepage: React.FC<HomepageProps> = ({ onNavigateToDashboard }) => {
                 <Search size={20} className="text-slate-400 mr-3 flex-shrink-0" />
                 <input 
                   type="text" 
-                  placeholder="Search by job title, company, or desc" 
+                  placeholder="Search by job title, company, or desc"
+                  value={jobQuery}
+                  onChange={(e) => setJobQuery(e.target.value)}
                   className="w-full bg-transparent focus:outline-none text-slate-800 placeholder:text-slate-500 caret-sky-500 text-sm md:text-base" 
                 />
               </div>
@@ -92,15 +157,31 @@ const Homepage: React.FC<HomepageProps> = ({ onNavigateToDashboard }) => {
                 <input 
                   type="text" 
                   placeholder="Search and select city" 
+                  value={city}
+                  onChange={(e) => setCity(e.target.value)}
                   className="w-full bg-transparent focus:outline-none text-slate-800 placeholder:text-slate-500 caret-sky-500 text-sm md:text-base" 
                 />
               </div>
-              <button className="w-full sm:w-auto bg-sky-500 text-white font-semibold py-3 px-6 rounded-md sm:rounded-full hover:bg-sky-600 transition-colors flex-shrink-0">
-                Search job
+              <button 
+                onClick={handleSearch}
+                disabled={isLoading}
+                className="w-full sm:w-auto bg-sky-500 text-white font-semibold py-3 px-6 rounded-md sm:rounded-full hover:bg-sky-600 transition-colors flex-shrink-0 disabled:bg-sky-400 disabled:cursor-not-allowed"
+              >
+                {isLoading ? 'Searching...' : 'Search job'}
               </button>
             </div>
           </div>
         </section>
+
+        {/* Search Results Section */}
+        {(isLoading || error || searchResults.length > 0) && (
+            <SearchResults 
+                loading={isLoading}
+                error={error}
+                results={searchResults}
+            />
+        )}
+
 
         {/* Cards Section */}
         <section className="py-24 bg-slate-50">

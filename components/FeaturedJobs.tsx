@@ -1,74 +1,20 @@
-import React, { useRef, useState } from 'react';
-import { Briefcase, Bookmark, ChevronLeft, ChevronRight } from 'lucide-react';
+import React, { useRef, useState, useEffect } from 'react';
+import { Briefcase, Bookmark, ChevronLeft, ChevronRight, ExternalLink, AlertTriangle } from 'lucide-react';
+import { GoogleGenAI } from "@google/genai";
 
 type Job = {
-  id: number;
   title: string;
   company: string;
-  experience: string;
   location: string;
-  posted: string;
-  details: string[];
+  description: string;
+  applyLink: string;
 };
-
-const jobData: Job[] = [
-  {
-    id: 1,
-    title: 'Sales Manager',
-    company: 'HRassistance India Consultancy LLP',
-    experience: '4+ years',
-    location: 'Bengaluru, India',
-    posted: '3 months ago',
-    details: [
-      'MBA Sales & Marketing with 4-6 years of experience in education/retail/franchising.',
-      'Sales Knowledge-- Influencing and Convincing, Self-Management -- result orientation.',
-    ],
-  },
-  {
-    id: 2,
-    title: 'Assistant Relationship Manager',
-    company: 'HRassistance India Consultancy LLP',
-    experience: '5+ years',
-    location: 'Mumbai, Maharashtra, India',
-    posted: '24 days ago',
-    details: [
-      'Candidates from Retail and Banking industry are preferred.',
-      'International BPO experience but with good end to end Operations exposure.',
-      'Verbal Communication',
-    ],
-  },
-  {
-    id: 3,
-    title: 'Sales Manager - Alternate Chan...',
-    company: 'HRassistance India Consultancy LLP',
-    experience: '3+ years',
-    location: 'Mumbai, Maharashtra, India',
-    posted: '24 days ago',
-    details: [
-      'Experience 3+ years in Franchise Sales, Curriculum Sales, or Business Development in the Preschool / K-12 / Education / Timeshare / Telecom sectors.',
-      'Age: Below 35 years.',
-    ],
-  },
-  {
-    id: 4,
-    title: 'Senior Frontend Developer',
-    company: 'Tech Solutions Inc.',
-    experience: '5+ years',
-    location: 'Remote',
-    posted: '2 days ago',
-    details: [
-        'Proficient in React, TypeScript, and Tailwind CSS.',
-        'Experience with state management libraries like Redux or Zustand.',
-        'Strong understanding of web performance and accessibility.',
-    ]
-  }
-];
 
 const JobCard: React.FC<{ job: Job }> = ({ job }) => {
     const [isBookmarked, setIsBookmarked] = useState(false);
 
     return (
-        <div className="flex-shrink-0 w-full sm:w-[calc(50%-0.5rem)] lg:w-[calc(33.333%-0.66rem)] bg-white p-6 rounded-xl border border-slate-200 shadow-sm hover:shadow-lg transition-shadow duration-300 space-y-4">
+        <div className="flex-shrink-0 w-full sm:w-[calc(50%-0.5rem)] lg:w-[calc(33.333%-0.66rem)] bg-white p-6 rounded-xl border border-slate-200 shadow-sm hover:shadow-lg transition-shadow duration-300 space-y-4 flex flex-col h-full">
             <div className="flex justify-between items-start">
                 <div className="flex items-center gap-4">
                     <div className="w-12 h-12 bg-slate-100 rounded-lg flex items-center justify-center font-bold text-sky-500">
@@ -88,24 +34,96 @@ const JobCard: React.FC<{ job: Job }> = ({ job }) => {
                 </button>
             </div>
             
-            <div className="flex flex-wrap justify-between items-center text-sm text-slate-500">
-                <div className="flex items-center"><Briefcase size={14} className="mr-1.5" /> {job.experience}</div>
-                <div>{job.posted}</div>
+            <div className="flex items-center text-sm text-slate-500">
+                <Briefcase size={14} className="mr-1.5" /> {job.location}
             </div>
 
-             <ul className="space-y-2 text-sm text-slate-600 list-disc list-inside marker:text-slate-400">
-                <li>{job.location}</li>
-                {job.details.slice(0, 2).map((detail, index) => (
-                    <li key={index} className="truncate" title={detail}>{detail}</li>
-                ))}
-            </ul>
+            <p className="text-sm text-slate-600 line-clamp-3 flex-grow">{job.description}</p>
+            
+             <a 
+                href={job.applyLink} 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="mt-auto inline-flex items-center justify-center w-full sm:w-auto self-start px-5 py-2.5 rounded-md font-semibold bg-sky-500 text-white hover:bg-sky-600 transition-colors"
+            >
+                Apply Now <ExternalLink size={16} className="ml-2" />
+            </a>
         </div>
     );
 };
 
+const LoadingSkeleton: React.FC = () => (
+    <div className="flex-shrink-0 w-full sm:w-[calc(50%-0.5rem)] lg:w-[calc(33.333%-0.66rem)] bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4 animate-pulse">
+        <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-slate-200 rounded-lg"></div>
+            <div className="flex-1 space-y-2">
+                 <div className="h-4 bg-slate-200 rounded w-3/4"></div>
+                 <div className="h-3 bg-slate-200 rounded w-1/2"></div>
+            </div>
+        </div>
+        <div className="h-4 bg-slate-200 rounded w-1/3"></div>
+        <div className="space-y-2 pt-2">
+            <div className="h-3 bg-slate-200 rounded"></div>
+            <div className="h-3 bg-slate-200 rounded"></div>
+        </div>
+        <div className="h-10 bg-slate-200 rounded w-32 mt-4"></div>
+    </div>
+);
+
 
 const FeaturedJobs = () => {
     const scrollContainerRef = useRef<HTMLDivElement>(null);
+    const [jobs, setJobs] = useState<Job[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => {
+        const fetchFeaturedJobs = async () => {
+            setIsLoading(true);
+            setError(null);
+            try {
+                const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+                const prompt = `
+                    Find 5 recent job openings from big tech companies (e.g., Google, Microsoft, Amazon, Apple, Meta) in India.
+                    Focus on software engineering or related tech roles.
+                    Return the results as a JSON object with a single key "jobs", which is an array of job objects.
+                    Each job object must have the following keys: "title", "company", "location", "description", and "applyLink".
+                    The description should be a brief summary of 1-2 sentences.
+                    If no jobs are found, return a JSON object with an empty "jobs" array.
+                    Do not include any text, markdown, or code block syntax outside of the JSON object itself.
+                `;
+                
+                const response = await ai.models.generateContent({
+                    model: "gemini-2.5-pro",
+                    contents: prompt,
+                    config: {
+                        tools: [{ googleSearch: {} }],
+                    },
+                });
+
+                let jsonText = response.text.trim();
+                if (jsonText.startsWith('```json')) {
+                    jsonText = jsonText.substring(7, jsonText.length - 3).trim();
+                }
+
+                const parsedData = JSON.parse(jsonText);
+
+                if (parsedData.jobs && parsedData.jobs.length > 0) {
+                    setJobs(parsedData.jobs);
+                } else {
+                    setError("Could not find any featured jobs at the moment.");
+                }
+            } catch (e) {
+                console.error("Failed to fetch featured jobs:", e);
+                setError("Failed to load featured jobs. Please try again later.");
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        fetchFeaturedJobs();
+    }, []);
+
 
     const scroll = (direction: 'left' | 'right') => {
         if (scrollContainerRef.current) {
@@ -124,7 +142,7 @@ const FeaturedJobs = () => {
                     <div>
                         <h2 className="text-3xl font-bold text-slate-900">Featured Jobs</h2>
                         <div className="mt-2">
-                             <span className="inline-block bg-sky-500 text-white text-xs font-semibold px-3 py-1 rounded-md">Sponsored Jobs</span>
+                             <span className="inline-block bg-sky-500 text-white text-xs font-semibold px-3 py-1 rounded-md">From Top Companies</span>
                         </div>
                     </div>
                     <div className="mt-4 sm:mt-0 flex items-center gap-2">
@@ -138,8 +156,17 @@ const FeaturedJobs = () => {
                 </div>
 
                 <div ref={scrollContainerRef} className="flex gap-4 overflow-x-auto pb-4" style={{scrollbarWidth: 'none'}}>
-                    {jobData.map((job) => (
-                        <JobCard key={job.id} job={job} />
+                    {isLoading && (
+                        [...Array(3)].map((_, i) => <LoadingSkeleton key={i} />)
+                    )}
+                    {error && !isLoading && (
+                         <div className="w-full flex items-center justify-center bg-red-50 border border-red-200 text-red-700 p-4 rounded-lg">
+                            <AlertTriangle className="mr-2" size={20}/>
+                            <span className="font-medium">{error}</span>
+                        </div>
+                    )}
+                    {!isLoading && !error && jobs.map((job, index) => (
+                        <JobCard key={index} job={job} />
                     ))}
                 </div>
 
